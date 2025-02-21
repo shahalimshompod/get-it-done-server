@@ -1,19 +1,27 @@
 require("dotenv").config();
 const express = require("express");
-const app = express();
+const { MongoClient, ServerApiVersion } = require("mongodb");
+const http = require("http");
 const cors = require("cors");
+const socketIo = require("socket.io");
 const port = process.env.PORT || 5000;
 
-// middleware
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  },
+});
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// mongodb
-
-const { MongoClient, ServerApiVersion } = require("mongodb");
+// MongoDB Connection
 const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.ezm1s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -22,52 +30,119 @@ const client = new MongoClient(uri, {
   },
 });
 
+let userCollection, tasksCollection;
+
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
-    // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
 
-    // database and collections
-    const userCollection = client.db("get-it-done").collection("users");
-    const tasksCollection = client.db("get-it-done").collection("tasks");
+    userCollection = client.db("get-it-done").collection("users");
+    tasksCollection = client.db("get-it-done").collection("tasks");
 
-    // OPERATIONS
+    console.log("Successfully connected to MongoDB!");
 
-    // POST OPERATIONS
-    app.post("/users", async (req, res) => {
-      const user = req.body;
-      const query = { email: user.email };
-      const existingUser = await userCollection.findOne(query);
+    // Socket.IO Connection
+    io.on("connection", (socket) => {
+      console.log("A user connected with ID:", socket.id);
 
-      if (existingUser) {
-        return res.send({ message: "USER ALREADY EXISTS", insertedId: null });
-      }
+      // Send a response to the frontend when the user connects
+      socket.emit("connectionResponse", {
+        message: "Connection successful",
+        socketId: socket.id,
+      });
 
-      const userToBeAdded = {
-        ...user,
-        createdAt: new Date(),
-      };
-      const result = await userCollection.insertOne(userToBeAdded);
-
-      res.send(result);
+      // Handle disconnect
+      socket.on("disconnect", () => {
+        console.log("A user disconnected with ID:", socket.id);
+      });
     });
 
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+    // POST routes
+    // post user while login/register
+    app.post("/users", async (req, res) => {
+      try {
+        const user = req.body;
+        const query = { email: user.email };
+        const existingUser = await userCollection.findOne(query);
+
+        if (existingUser) {
+          return res
+            .status(400)
+            .send({ message: "USER ALREADY EXISTS", insertedId: null });
+        }
+
+        const userToBeAdded = {
+          ...user,
+          createdAt: new Date(),
+        };
+        const result = await userCollection.insertOne(userToBeAdded);
+        res.status(201).send(result);
+      } catch (error) {
+        console.error("Error adding user:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // add tasks
+    app.post("/add-tasks", async (req, res) => {
+      try {
+        const taskData = req.body;
+        if (!taskData) {
+          return res.send({ message: "resource not found" });
+        }
+
+        const finalData = {
+          ...taskData,
+          createdAt: new Date(),
+        };
+        const result = await tasksCollection.insertOne(finalData);
+        io.emit("TaskAdded", finalData); // Emit task added event to all connected clients
+        res.send(result);
+      } catch (error) {
+        console.error("Error adding task:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // GET OPERATIONS
+    // get operation for todo route
+    app.get("/todo-tasks", async (req, res) => {
+      try {
+        const cursor = tasksCollection.find().sort({ createdAt: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    
+  } catch (error) {
+    console.error("Failed to connect to MongoDB:", error);
+    process.exit(1); // Exit the process if MongoDB connection fails
   }
 }
+
 run().catch(console.dir);
+
+// Graceful shutdown
+process.on("SIGINT", async () => {
+  try {
+    // await client.close();
+    console.log("MongoDB connection closed.");
+    process.exit(0);
+  } catch (error) {
+    console.error("Error closing MongoDB connection:", error);
+    process.exit(1);
+  }
+});
 
 app.get("/", (req, res) => {
   res.send("Get It Done is running");
 });
 
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Get It Done is running on port ${port}`);
 });
