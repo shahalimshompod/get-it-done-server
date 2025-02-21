@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const http = require("http");
 const cors = require("cors");
 const socketIo = require("socket.io");
@@ -219,6 +219,59 @@ async function run() {
         console.error("Error fetching tasks:", error);
         res.status(500).send("Internal Server Error");
       }
+    });
+
+    // DELETE OPERATIONS
+    // delete tasks
+    app.delete("/task/:id", async (req, res) => {
+      const taskId = req.params.id;
+      const filter = { _id: new ObjectId(taskId) };
+      const result = await tasksCollection.deleteOne(filter);
+      io.emit("TaskDeleted", taskId);
+      res.send(result);
+    });
+
+    // PUT OPERATIONS
+    // put operation for task update
+    app.put("/task-update/:id", async (req, res) => {
+      const taskId = req.params.id;
+      const filter = { _id: new ObjectId(taskId) };
+
+      // data from client
+      const updatedTask = req.body;
+      console.log(updatedTask);
+
+      if (!updatedTask) {
+        return res.status(404).send({ message: "Resource Not Found" });
+      }
+
+      const task = await tasksCollection.findOne(filter);
+
+      if (!task) {
+        return res.status(404).send({ message: "Pet not found" });
+      }
+
+      // change detecting
+      let matched = true;
+      for (const key in updatedTask) {
+        if (updatedTask[key] !== task[key]) {
+          matched = false;
+          break;
+        }
+      }
+
+      console.log(matched);
+
+      if (matched) {
+        return res.send({ message: "Saved! Nothing changed.", modifiedCount: 0 });
+      }
+
+      const finalTask = {
+        $set: updatedTask,
+      };
+
+      const result = await tasksCollection.updateOne(filter, finalTask);
+      res.send(result);
     });
 
 
