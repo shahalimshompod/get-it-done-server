@@ -175,6 +175,53 @@ async function run() {
       }
     });
 
+    // get operation for my tasks route
+    app.get("/all-tasks", async (req, res) => {
+      try {
+        const userMail = req?.query.query;
+
+        console.log(userMail);
+
+        // Check if email exists in the query
+        if (!userMail) {
+          return res.status(400).send("Email query parameter is required.");
+        }
+
+        const filter = { email: userMail };
+
+        const cursor = tasksCollection.find(filter).sort({ createdAt: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    // get operation for completed route
+    app.get("/vital-tasks", async (req, res) => {
+      try {
+        const userMail = req?.query.query;
+
+        console.log(userMail);
+
+        // Check if email exists in the query
+        if (!userMail) {
+          return res.status(400).send("Email query parameter is required.");
+        }
+
+        const filter = { email: userMail, task_priority: "extreme" };
+
+        const cursor = tasksCollection.find(filter).sort({ createdAt: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+
 
   } catch (error) {
     console.error("Failed to connect to MongoDB:", error);
