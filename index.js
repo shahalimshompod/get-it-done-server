@@ -109,7 +109,18 @@ async function run() {
     // get operation for todo route
     app.get("/todo-tasks", async (req, res) => {
       try {
-        const cursor = tasksCollection.find().sort({ createdAt: -1 });
+        const userMail = req?.query.query;
+
+        console.log(userMail);
+
+        // Check if email exists in the query
+        if (!userMail) {
+          return res.status(400).send("Email query parameter is required.");
+        }
+
+        const filter = { email: userMail, task_category: "not started" };
+
+        const cursor = tasksCollection.find(filter).sort({ createdAt: -1 });
         const result = await cursor.toArray();
         res.send(result);
       } catch (error) {
@@ -118,7 +129,53 @@ async function run() {
       }
     });
 
-    
+    // get operation for in progress route
+    app.get("/in-progress-tasks", async (req, res) => {
+      try {
+        const userMail = req?.query.query;
+
+        console.log(userMail);
+
+        // Check if email exists in the query
+        if (!userMail) {
+          return res.status(400).send("Email query parameter is required.");
+        }
+
+        const filter = { email: userMail, task_category: "in progress" };
+
+        const cursor = tasksCollection.find(filter).sort({ createdAt: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    // get operation for completed route
+    app.get("/completed-tasks", async (req, res) => {
+      try {
+        const userMail = req?.query.query;
+
+        console.log(userMail);
+
+        // Check if email exists in the query
+        if (!userMail) {
+          return res.status(400).send("Email query parameter is required.");
+        }
+
+        const filter = { email: userMail, task_category: "completed" };
+
+        const cursor = tasksCollection.find(filter).sort({ createdAt: -1 });
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+
   } catch (error) {
     console.error("Failed to connect to MongoDB:", error);
     process.exit(1); // Exit the process if MongoDB connection fails
