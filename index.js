@@ -187,7 +187,7 @@ async function run() {
           return res.status(400).send("Email query parameter is required.");
         }
 
-        const filter = { email: userMail };
+        const filter = { email: userMail, task_category: { $ne: "completed" } };
 
         const cursor = tasksCollection.find(filter).sort({ createdAt: -1 });
         const result = await cursor.toArray();
@@ -233,13 +233,68 @@ async function run() {
 
     // PUT OPERATIONS
     // put operation for task update
+    // app.put("/task-update/:id", async (req, res) => {
+    //   const taskId = req.params.id;
+    //   const filter = { _id: new ObjectId(taskId) };
+
+    //   // Data from client
+    //   const updatedTask = req.body;
+    //   console.log("Updated Task from Client:", updatedTask);
+
+    //   if (!updatedTask) {
+    //     return res.status(404).send({ message: "Resource Not Found" });
+    //   }
+
+    //   const task = await tasksCollection.findOne(filter);
+
+    //   if (!task) {
+    //     return res.status(404).send({ message: "Task not found" });
+    //   }
+
+    //   // Change detecting
+    //   let matched = true;
+    //   for (const key in updatedTask) {
+    //     if (updatedTask[key] !== task[key]) {
+    //       matched = false;
+    //       break;
+    //     }
+    //   }
+
+    //   console.log("Is Data Matched?", matched);
+
+    //   if (matched) {
+    //     return res.send({
+    //       message: "Saved! Nothing changed.",
+    //       modifiedCount: 0,
+    //     });
+    //   }
+
+    //   const finalTask = {
+    //     $set: updatedTask,
+    //   };
+
+    //   const result = await tasksCollection.updateOne(filter, finalTask);
+
+    //   // Add _id, email, and task_priority to the updatedTask before emitting
+    //   const updatedTaskWithId = {
+    //     ...updatedTask,
+    //     _id: taskId,
+    //     email: task.email,
+    //     task_priority: task.task_priority,
+    //   };
+    //   console.log("Emitting TaskUpdate:", updatedTaskWithId); // Debugging
+    //   io.emit("TaskUpdate", updatedTaskWithId);
+
+    //   res.send(result);
+    // });
+
     app.put("/task-update/:id", async (req, res) => {
       const taskId = req.params.id;
       const filter = { _id: new ObjectId(taskId) };
 
-      // data from client
+      // Data from client
       const updatedTask = req.body;
-      console.log(updatedTask);
+      console.log("Updated Task from Client:", updatedTask);
 
       if (!updatedTask) {
         return res.status(404).send({ message: "Resource Not Found" });
@@ -248,10 +303,10 @@ async function run() {
       const task = await tasksCollection.findOne(filter);
 
       if (!task) {
-        return res.status(404).send({ message: "Pet not found" });
+        return res.status(404).send({ message: "Task not found" });
       }
 
-      // change detecting
+      // Change detecting
       let matched = true;
       for (const key in updatedTask) {
         if (updatedTask[key] !== task[key]) {
@@ -260,10 +315,13 @@ async function run() {
         }
       }
 
-      console.log(matched);
+      console.log("Is Data Matched?", matched);
 
       if (matched) {
-        return res.send({ message: "Saved! Nothing changed.", modifiedCount: 0 });
+        return res.send({
+          message: "Saved! Nothing changed.",
+          modifiedCount: 0,
+        });
       }
 
       const finalTask = {
@@ -271,11 +329,21 @@ async function run() {
       };
 
       const result = await tasksCollection.updateOne(filter, finalTask);
+
+      // Add _id, email, task_priority, and old_priority to the updatedTask before emitting
+      const updatedTaskWithId = {
+        ...updatedTask,
+        _id: taskId,
+        email: task.email,
+        task_priority: updatedTask.task_priority,
+        old_priority: task.task_priority,
+        old_category: task.task_category,
+        createdAt: task.createdAt,
+      };
+      io.emit("TaskUpdate", updatedTaskWithId);
+
       res.send(result);
     });
-
-
-
   } catch (error) {
     console.error("Failed to connect to MongoDB:", error);
     process.exit(1); // Exit the process if MongoDB connection fails
