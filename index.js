@@ -11,10 +11,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: [
-      "https://getitdone-24.web.app",
-      "http://localhost:5173",
-    ],
+    origin: ["https://getitdone-24.web.app", "http://localhost:5173"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   },
@@ -47,7 +44,6 @@ async function run() {
     // jwt api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      console.log(user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "3h",
       });
@@ -126,6 +122,7 @@ async function run() {
         const finalData = {
           ...taskData,
           createdAt: new Date(),
+          order: parseInt(0),
         };
         const result = await tasksCollection.insertOne(finalData);
         io.emit("TaskAdded", finalData);
@@ -142,8 +139,6 @@ async function run() {
       try {
         const userMail = req?.query.query;
 
-        console.log(userMail);
-
         // Check if email exists in the query
         if (!userMail) {
           return res.status(400).send("Email query parameter is required.");
@@ -151,7 +146,8 @@ async function run() {
 
         const filter = { email: userMail, task_category: "not started" };
 
-        const cursor = tasksCollection.find(filter).sort({ createdAt: -1 });
+        // const cursor = tasksCollection.find(filter).sort({ createdAt: -1 });
+        const cursor = tasksCollection.find(filter).sort({ order: 1 });
         const result = await cursor.toArray();
         res.send(result);
       } catch (error) {
@@ -164,8 +160,6 @@ async function run() {
     app.get("/in-progress-tasks", async (req, res) => {
       try {
         const userMail = req?.query.query;
-
-        console.log(userMail);
 
         // Check if email exists in the query
         if (!userMail) {
@@ -187,9 +181,6 @@ async function run() {
     app.get("/completed-tasks", async (req, res) => {
       try {
         const userMail = req?.query.query;
-
-        console.log(userMail);
-
         // Check if email exists in the query
         if (!userMail) {
           return res.status(400).send("Email query parameter is required.");
@@ -211,8 +202,6 @@ async function run() {
       try {
         const userMail = req?.query.query;
 
-        console.log(userMail);
-
         // Check if email exists in the query
         if (!userMail) {
           return res.status(400).send("Email query parameter is required.");
@@ -233,8 +222,6 @@ async function run() {
     app.get("/vital-tasks", async (req, res) => {
       try {
         const userMail = req?.query.query;
-
-        console.log(userMail);
 
         // Check if email exists in the query
         if (!userMail) {
@@ -270,7 +257,6 @@ async function run() {
 
       // Data from client
       const updatedTask = req.body;
-      console.log("Updated Task from Client:", updatedTask);
 
       if (!updatedTask) {
         return res.status(404).send({ message: "Resource Not Found" });
@@ -290,8 +276,6 @@ async function run() {
           break;
         }
       }
-
-      console.log("Is Data Matched?", matched);
 
       if (matched) {
         return res.send({
@@ -320,6 +304,58 @@ async function run() {
 
       res.send(result);
     });
+
+    // PATCH OPERATIONS
+    // patch operation for task update
+    app.patch("/update-task-order", async (req, res) => {
+      const { tasks, email } = req.body;
+
+      try {
+        const bulkOperations = tasks.map((task) => ({
+          updateOne: {
+            filter: { _id: new ObjectId(String(task._id)) },
+            update: { $set: { order: task.order } },
+          },
+        }));
+
+        const result = await tasksCollection.bulkWrite(bulkOperations);
+
+        io.emit("TaskOrderUpdated", { email, tasks });
+
+        res.send({ message: "Task order updated successfully", result });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
+
+    // patch for update completed
+    app.patch("/task-completed/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedCategory = req.body;
+
+      const data = {
+        ...updatedCategory,
+        id,
+      };
+
+      if (!updatedCategory && id) {
+        return res.status(404).json({ message: "Resource not found" });
+      }
+
+      const result = await tasksCollection.findOneAndUpdate(
+        { _id: new ObjectId(id) },
+        { $set: updatedCategory },
+        { new: false, upsert: false }
+      );
+
+      io.emit("TaskCompleted", data);
+
+      res.status(200).json({
+        message: "User updated with role 'Admin'",
+        updated: true,
+      });
+    });
   } catch (error) {
     console.error("Failed to connect to MongoDB:", error);
     process.exit(1); // Exit the process if MongoDB connection fails
@@ -332,7 +368,6 @@ run().catch(console.dir);
 process.on("SIGINT", async () => {
   try {
     // await client.close();
-    console.log("MongoDB connection closed.");
     process.exit(0);
   } catch (error) {
     console.error("Error closing MongoDB connection:", error);
