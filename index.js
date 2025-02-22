@@ -18,7 +18,14 @@ const io = socketIo(server, {
 });
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: ["https://getitdone-24.web.app", "http://localhost:5173"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 // MongoDB Connection
