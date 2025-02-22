@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*",
+    origin: "https://getitdone-24.web.app/",
     methods: ["GET", "POST", "PUT", "DELETE"],
   },
 });
