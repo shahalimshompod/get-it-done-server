@@ -5,6 +5,7 @@ const http = require("http");
 const cors = require("cors");
 const socketIo = require("socket.io");
 const port = process.env.PORT || 5000;
+const jwt = require("jsonwebtoken");
 
 const app = express();
 const server = http.createServer(app);
@@ -38,6 +39,32 @@ async function run() {
 
     userCollection = client.db("get-it-done").collection("users");
     tasksCollection = client.db("get-it-done").collection("tasks");
+
+    // jwt api
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "3h",
+      });
+      res.send({ token });
+    });
+
+    // verify token
+    const verifyToken = (req, res, next) => {
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "Forbidden Access" });
+      }
+
+      const token = req.headers.authorization.split(" ")[1];
+
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "Forbidden Access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
 
     console.log("Successfully connected to MongoDB!");
 
