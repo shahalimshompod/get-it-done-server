@@ -112,11 +112,16 @@ async function run() {
     });
 
     // add tasks
-    app.post("/add-tasks", async (req, res) => {
+    app.post("/add-tasks", verifyToken, async (req, res) => {
       try {
         const taskData = req.body;
+        const userMail = taskData.email;
         if (!taskData) {
           return res.send({ message: "resource not found" });
+        }
+
+        if (userMail !== req.decoded.email) {
+          return res.status(403).send({ message: "Unauthorized access" });
         }
 
         const finalData = {
@@ -135,7 +140,7 @@ async function run() {
 
     // GET OPERATIONS
     // get operation for todo route
-    app.get("/todo-tasks", async (req, res) => {
+    app.get("/todo-tasks", verifyToken, async (req, res) => {
       try {
         const userMail = req?.query.query;
 
@@ -144,9 +149,12 @@ async function run() {
           return res.status(400).send("Email query parameter is required.");
         }
 
+        if (userMail !== req.decoded.email) {
+          return res.status(403).send({ message: "Unauthorized access" });
+        }
+
         const filter = { email: userMail, task_category: "not started" };
 
-        // const cursor = tasksCollection.find(filter).sort({ createdAt: -1 });
         const cursor = tasksCollection.find(filter).sort({ order: 1 });
         const result = await cursor.toArray();
         res.send(result);
@@ -157,13 +165,17 @@ async function run() {
     });
 
     // get operation for in progress route
-    app.get("/in-progress-tasks", async (req, res) => {
+    app.get("/in-progress-tasks", verifyToken, async (req, res) => {
       try {
         const userMail = req?.query.query;
 
         // Check if email exists in the query
         if (!userMail) {
           return res.status(400).send("Email query parameter is required.");
+        }
+
+        if (userMail !== req.decoded.email) {
+          return res.status(403).send({ message: "Unauthorized access" });
         }
 
         const filter = { email: userMail, task_category: "in progress" };
@@ -178,12 +190,16 @@ async function run() {
     });
 
     // get operation for completed route
-    app.get("/completed-tasks", async (req, res) => {
+    app.get("/completed-tasks", verifyToken, async (req, res) => {
       try {
         const userMail = req?.query.query;
         // Check if email exists in the query
         if (!userMail) {
           return res.status(400).send("Email query parameter is required.");
+        }
+
+        if (userMail !== req.decoded.email) {
+          return res.status(403).send({ message: "Unauthorized access" });
         }
 
         const filter = { email: userMail, task_category: "completed" };
@@ -198,13 +214,17 @@ async function run() {
     });
 
     // get operation for my tasks route
-    app.get("/all-tasks", async (req, res) => {
+    app.get("/all-tasks", verifyToken, async (req, res) => {
       try {
         const userMail = req?.query.query;
 
         // Check if email exists in the query
         if (!userMail) {
           return res.status(400).send("Email query parameter is required.");
+        }
+
+        if (userMail !== req.decoded.email) {
+          return res.status(403).send({ message: "Unauthorized access" });
         }
 
         const filter = { email: userMail, task_category: { $ne: "completed" } };
@@ -219,13 +239,17 @@ async function run() {
     });
 
     // get operation for completed route
-    app.get("/vital-tasks", async (req, res) => {
+    app.get("/vital-tasks", verifyToken, async (req, res) => {
       try {
         const userMail = req?.query.query;
 
         // Check if email exists in the query
         if (!userMail) {
           return res.status(400).send("Email query parameter is required.");
+        }
+
+        if (userMail !== req.decoded.email) {
+          return res.status(403).send({ message: "Unauthorized access" });
         }
 
         const filter = { email: userMail, task_priority: "extreme" };
@@ -241,7 +265,7 @@ async function run() {
 
     // DELETE OPERATIONS
     // delete tasks
-    app.delete("/task/:id", async (req, res) => {
+    app.delete("/task/:id", verifyToken, async (req, res) => {
       const taskId = req.params.id;
       const filter = { _id: new ObjectId(taskId) };
       const result = await tasksCollection.deleteOne(filter);
@@ -251,7 +275,7 @@ async function run() {
 
     // PUT OPERATIONS
     // put operation for task update
-    app.put("/task-update/:id", async (req, res) => {
+    app.put("/task-update/:id", verifyToken, async (req, res) => {
       const taskId = req.params.id;
       const filter = { _id: new ObjectId(taskId) };
 
@@ -307,10 +331,14 @@ async function run() {
 
     // PATCH OPERATIONS
     // patch operation for task update
-    app.patch("/update-task-order", async (req, res) => {
+    app.patch("/update-task-order", verifyToken, async (req, res) => {
       const { tasks, email } = req.body;
 
       try {
+        if (email !== req.decoded.email) {
+          return res.status(403).send({ message: "Unauthorized access" });
+        }
+
         const bulkOperations = tasks.map((task) => ({
           updateOne: {
             filter: { _id: new ObjectId(String(task._id)) },
@@ -330,7 +358,7 @@ async function run() {
     });
 
     // patch for update completed
-    app.patch("/task-completed/:id", async (req, res) => {
+    app.patch("/task-completed/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const updatedCategory = req.body;
 
