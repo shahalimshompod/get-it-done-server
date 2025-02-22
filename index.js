@@ -9,41 +9,24 @@ const jwt = require("jsonwebtoken");
 
 const app = express();
 const server = http.createServer(app);
-
-// CORS setup
-const corsOptions = {
-  origin: ["https://getitdone-24.web.app", "http://localhost:5173"],
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  credentials: true,
-};
-
-app.use(cors(corsOptions));
-
-// Handle preflight requests
-app.options("*", cors(corsOptions));
-
-// Headers setup
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://getitdone-24.web.app");
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-  next();
-});
-
-app.use(express.json());
-
-// Socket.IO setup
 const io = socketIo(server, {
   cors: {
     origin: ["https://getitdone-24.web.app", "http://localhost:5173"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   },
 });
+
+// Middleware
+app.use(
+  cors({
+    origin: ["https://getitdone-24.web.app", "http://localhost:5173"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    credentials: true,
+  })
+);
+
+app.use(express.json());
 
 // MongoDB Connection
 const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.ezm1s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -60,13 +43,12 @@ let userCollection, tasksCollection;
 
 async function run() {
   try {
-    await client.connect();
+    // await client.db("admin").command({ ping: 1 });
+
     userCollection = client.db("get-it-done").collection("users");
     tasksCollection = client.db("get-it-done").collection("tasks");
 
-    console.log("Successfully connected to MongoDB!");
-
-    // JWT API
+    // jwt api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -75,7 +57,7 @@ async function run() {
       res.send({ token });
     });
 
-    // Verify Token Middleware
+    // verify token
     const verifyToken = (req, res, next) => {
       if (!req.headers.authorization) {
         return res.status(401).send({ message: "Forbidden Access" });
@@ -91,6 +73,8 @@ async function run() {
         next();
       });
     };
+
+    console.log("Successfully connected to MongoDB!");
 
     // Socket.IO Connection
     io.on("connection", (socket) => {
