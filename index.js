@@ -96,7 +96,7 @@ async function run() {
           createdAt: new Date(),
         };
         const result = await tasksCollection.insertOne(finalData);
-        io.emit("TaskAdded", finalData); // Emit task added event to all connected clients
+        io.emit("TaskAdded", finalData);
         res.send(result);
       } catch (error) {
         console.error("Error adding task:", error);
@@ -232,61 +232,6 @@ async function run() {
 
     // PUT OPERATIONS
     // put operation for task update
-    // app.put("/task-update/:id", async (req, res) => {
-    //   const taskId = req.params.id;
-    //   const filter = { _id: new ObjectId(taskId) };
-
-    //   // Data from client
-    //   const updatedTask = req.body;
-    //   console.log("Updated Task from Client:", updatedTask);
-
-    //   if (!updatedTask) {
-    //     return res.status(404).send({ message: "Resource Not Found" });
-    //   }
-
-    //   const task = await tasksCollection.findOne(filter);
-
-    //   if (!task) {
-    //     return res.status(404).send({ message: "Task not found" });
-    //   }
-
-    //   // Change detecting
-    //   let matched = true;
-    //   for (const key in updatedTask) {
-    //     if (updatedTask[key] !== task[key]) {
-    //       matched = false;
-    //       break;
-    //     }
-    //   }
-
-    //   console.log("Is Data Matched?", matched);
-
-    //   if (matched) {
-    //     return res.send({
-    //       message: "Saved! Nothing changed.",
-    //       modifiedCount: 0,
-    //     });
-    //   }
-
-    //   const finalTask = {
-    //     $set: updatedTask,
-    //   };
-
-    //   const result = await tasksCollection.updateOne(filter, finalTask);
-
-    //   // Add _id, email, and task_priority to the updatedTask before emitting
-    //   const updatedTaskWithId = {
-    //     ...updatedTask,
-    //     _id: taskId,
-    //     email: task.email,
-    //     task_priority: task.task_priority,
-    //   };
-    //   console.log("Emitting TaskUpdate:", updatedTaskWithId); // Debugging
-    //   io.emit("TaskUpdate", updatedTaskWithId);
-
-    //   res.send(result);
-    // });
-
     app.put("/task-update/:id", async (req, res) => {
       const taskId = req.params.id;
       const filter = { _id: new ObjectId(taskId) };
